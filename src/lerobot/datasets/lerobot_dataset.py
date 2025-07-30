@@ -921,7 +921,33 @@ class LeRobotDataset(torch.utils.data.Dataset):
                     episode_index=episode_index, image_key=cam_key, frame_index=0
                 ).parent
                 if img_dir.is_dir():
-                    shutil.rmtree(img_dir)
+                    # Try to ensure all writes are complete
+                    if self.image_writer:
+                        self._wait_image_writer()
+                    
+                    # Try removal with retries
+                    max_retries = 3
+                    retry_delay = 0.5  # seconds
+                    
+                    for attempt in range(max_retries):
+                        try:
+                            # List remaining files for debugging
+                            remaining_files = list(img_dir.glob('*'))
+                            if remaining_files:
+                                logging.debug(f"Files remaining in {img_dir}: {remaining_files}")
+                            
+                            # Try to remove directory
+                            shutil.rmtree(img_dir)
+                            break
+                        except OSError as e:
+                            if attempt == max_retries - 1:  # Last attempt
+                                logging.warning(f"Could not remove directory {img_dir} after {max_retries} attempts: {e}")
+                                # Just continue instead of failing - the VideoEncodingManager will clean this up later
+                                continue
+                            else:
+                                import time
+                                time.sleep(retry_delay)
+                                continue
 
         # Reset the buffer
         self.episode_buffer = self.create_episode_buffer()

@@ -213,6 +213,7 @@ def load_tasks(local_dir: Path) -> tuple[dict, dict]:
 
 
 def write_episode(episode: dict, local_dir: Path):
+    logging.info(f"Writing episode {episode['episode_index']} to {local_dir / EPISODES_PATH}")
     append_jsonlines(episode, local_dir / EPISODES_PATH)
 
 

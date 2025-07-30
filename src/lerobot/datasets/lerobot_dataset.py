@@ -505,7 +505,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         push_videos: bool = True,
         private: bool = False,
         allow_patterns: list[str] | str | None = None,
-        upload_large_folder: bool = False,
+        upload_large_folder: bool = True,
         **card_kwargs,
     ) -> None:
         ignore_patterns = ["images/"]
@@ -536,6 +536,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
             "allow_patterns": allow_patterns,
             "ignore_patterns": ignore_patterns,
         }
+        logging.info(f"Uploading dataset to hub: {upload_kwargs}")
         if upload_large_folder:
             hub_api.upload_large_folder(**upload_kwargs)
         else:

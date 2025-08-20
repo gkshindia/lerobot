@@ -17,6 +17,7 @@ import glob
 import importlib
 import logging
 import shutil
+import time
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -477,17 +478,23 @@ class VideoEncodingManager:
         # Handle any remaining episodes that haven't been batch encoded
         if self.dataset.episodes_since_last_encoding > 0:
             if exc_type is not None:
-                logging.info("Exception occurred. Encoding remaining episodes before exit...")
+                logging.info("⚠️  Exception occurred. Encoding remaining episodes before exit...")
             else:
-                logging.info("Recording stopped. Encoding remaining episodes...")
+                logging.info("🏁 Recording completed. Encoding remaining episodes...")
 
             start_ep = self.dataset.num_episodes - self.dataset.episodes_since_last_encoding
             end_ep = self.dataset.num_episodes
             logging.info(
-                f"Encoding remaining {self.dataset.episodes_since_last_encoding} episodes, "
-                f"from episode {start_ep} to {end_ep - 1}"
+                f"🎬 Final batch encoding: {self.dataset.episodes_since_last_encoding} episodes "
+                f"(episodes {start_ep} to {end_ep - 1})"
             )
+            
+            start_time = time.time()
             self.dataset.batch_encode_videos(start_ep, end_ep)
+            encoding_time = time.time() - start_time
+            logging.info(f"✅ Final batch encoding completed in {encoding_time:.2f}s")
+        elif self.dataset.batch_encoding_size > 1:
+            logging.info("✅ All episodes have been batch encoded successfully!")
 
         # Clean up episode images if recording was interrupted
         if exc_type is not None:

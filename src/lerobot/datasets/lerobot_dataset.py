@@ -16,6 +16,7 @@
 import contextlib
 import logging
 import shutil
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -458,6 +459,13 @@ class LeRobotDataset(torch.utils.data.Dataset):
         self.batch_encoding_size = batch_encoding_size
         self.episodes_since_last_encoding = 0
 
+        # Log batch processing configuration
+        if batch_encoding_size > 1:
+            logging.info(f"🚀 Batch video encoding enabled: {batch_encoding_size} episodes per batch")
+            logging.info("⚡ This will significantly reduce per-episode processing time!")
+        else:
+            logging.info("📹 Immediate video encoding enabled (batch_encoding_size=1)")
+
         # Unused attributes
         self.image_writer = None
         self.episode_buffer = None
@@ -861,7 +869,12 @@ class LeRobotDataset(torch.utils.data.Dataset):
         use_batched_encoding = self.batch_encoding_size > 1
 
         if has_video_keys and not use_batched_encoding:
+            logging.info(f"Encoding videos for episode {episode_index} (immediate encoding)")
             self.encode_episode_videos(episode_index)
+        elif has_video_keys and use_batched_encoding:
+            logging.info(
+                f"Episode {episode_index} saved (batch encoding: {self.episodes_since_last_encoding + 1}/{self.batch_encoding_size})"
+            )
 
         # `meta.save_episode` should be executed after encoding the videos
         self.meta.save_episode(episode_index, episode_length, episode_tasks, ep_stats)
@@ -873,9 +886,12 @@ class LeRobotDataset(torch.utils.data.Dataset):
                 start_ep = self.num_episodes - self.batch_encoding_size
                 end_ep = self.num_episodes
                 logging.info(
-                    f"Batch encoding {self.batch_encoding_size} videos for episodes {start_ep} to {end_ep - 1}"
+                    f"🎬 Batch encoding {self.batch_encoding_size} videos for episodes {start_ep} to {end_ep - 1}"
                 )
+                start_time = time.time()
                 self.batch_encode_videos(start_ep, end_ep)
+                encoding_time = time.time() - start_time
+                logging.info(f"✅ Batch encoding completed in {encoding_time:.2f}s")
                 self.episodes_since_last_encoding = 0
 
         # Episode data index and timestamp checking
@@ -991,14 +1007,24 @@ class LeRobotDataset(torch.utils.data.Dataset):
         if end_episode is None:
             end_episode = self.meta.total_episodes
 
-        logging.info(f"Starting batch video encoding for episodes {start_episode} to {end_episode - 1}")
+        num_episodes = end_episode - start_episode
+        logging.info(f"🎬 Starting batch video encoding for {num_episodes} episodes ({start_episode} to {end_episode - 1})")
+        
+        overall_start_time = time.time()
 
         # Encode all episodes with cleanup enabled for individual episodes
-        for ep_idx in range(start_episode, end_episode):
-            logging.info(f"Encoding videos for episode {ep_idx}")
+        for i, ep_idx in enumerate(range(start_episode, end_episode)):
+            episode_start_time = time.time()
             self.encode_episode_videos(ep_idx)
+            episode_time = time.time() - episode_start_time
+            
+            progress = f"({i + 1}/{num_episodes})"
+            logging.info(f"📹 Episode {ep_idx} encoded in {episode_time:.2f}s {progress}")
 
-        logging.info("Batch video encoding completed")
+        total_time = time.time() - overall_start_time
+        avg_time_per_episode = total_time / num_episodes
+        logging.info(f"✅ Batch encoding completed: {num_episodes} episodes in {total_time:.2f}s")
+        logging.info(f"📊 Average encoding time per episode: {avg_time_per_episode:.2f}s")
 
     @classmethod
     def create(

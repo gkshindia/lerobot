@@ -193,7 +193,17 @@ def decode_video_frames_torchcodec(
         raise ImportError("torchcodec is required but not available.")
 
     # initialize video decoder
-    decoder = VideoDecoder(video_path, device=device, seek_mode="approximate")
+    try:
+        decoder = VideoDecoder(video_path, device=device, seek_mode="approximate")
+    except ValueError as e:
+        if "No valid stream found" in str(e):
+            raise ValueError(
+                f"Failed to decode video file '{video_path}': No valid video stream found. "
+                f"The video file may be corrupted, empty, or contain an unsupported codec. "
+                f"Original error: {e}"
+            ) from e
+        else:
+            raise
     loaded_frames = []
     loaded_ts = []
     # get metadata for frame information
